@@ -3,6 +3,15 @@
 layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2D screen;
 
+layout(set = 0, binding = 0) uniform CameraData {
+    vec3 cam_o;
+    vec3 forward;
+    vec3 right;
+    vec3 up;
+    float fov;
+};
+
+
 const int MAX_STEPS = 100;
 const float EPSILON = 0.001;
 
@@ -30,16 +39,17 @@ void main()
 
     ivec2 dims = imageSize(screen);
     float aspect_ratio = float(dims.x) / float(dims.y); // get aspect ratio of the window
-    float fov = 90.0;
-    vec3 cam_o = vec3(0.0, 0.0, (fov / 2.0));
+    // float fov = 90.0;
+    // vec3 cam_o = cam_o;
 
     // Hardcoded vectors
-    vec3 forward = vec3(0, 0, -1);
-    vec3 right = vec3(1, 0, 0);
-    vec3 up = vec3(0, 1, 0);
+    // vec3 forward = vec3(0, 0, -1);
+    // vec3 right = vec3(1, 0, 0);
+    // vec3 up = vec3(0, 1, 0);
 
-    vec3 ray_o = vec3(-1.0 + (2.0 * float(pixel_coords.x) / float(dims.x-1)), -1.0 + (2.0 * float(pixel_coords.y) / float(dims.y-1)), 0.0);
-    vec3 ray_d = normalize(forward + ray_o.x * right * aspect_ratio + ray_o.y * up);
+    vec3 ray_o = cam_o;
+    vec3 ray_d = normalize(forward + (2.0 * (float(pixel_coords.x) / dims.x) - 1.0) * tan(fov / 2.0) * aspect_ratio * right + (2.0 * (float(pixel_coords.y) / dims.y) - 1.0) * tan(fov / 2.0) * up);
+    ray_d = normalize(ray_d - cam_o);
 
     float t = marchRay(cam_o, ray_d);
     if (t >= 0.0) {
