@@ -55,9 +55,42 @@ GLchar *LoadShader(const std::string &file)
 	return shaderCode;
 }
 
+struct CameraData {
+    glm::vec3 cam_o;
+    glm::vec3 forward;
+    glm::vec3 right;
+    glm::vec3 up;
+    float fov;
+} camera;
+
+void processInput(GLFWwindow *window)
+{
+    const float cameraSpeed = 0.05f; // adjust accordingly
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        camera.cam_o += cameraSpeed * camera.forward;
+	}
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		std::cout << "\nS";
+        camera.cam_o -= cameraSpeed * camera.forward;
+	}
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        camera.cam_o -= glm::normalize(glm::cross(camera.forward, camera.up)) * cameraSpeed;
+		std::cout << "\nA";
+	}
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        camera.cam_o += glm::normalize(glm::cross(camera.forward, camera.up)) * cameraSpeed;
+		std::cout << "\nD";
+	}
+}
 
 int main()
 {
+	camera.cam_o = glm::vec3(0.0f, 0.0f, 3.0f);
+	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);
+	camera.right = glm::vec3(1.0f, 0.0f, 0.0f);
+	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
+	camera.fov = glm::radians(90.0f);
+
 	glfwInit();
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -131,8 +164,25 @@ int main()
 	glAttachShader(computeProgram, computeShader);
 	glLinkProgram(computeProgram);
 
+	unsigned int cameraBlock;
+	glGenBuffers(1, &cameraBlock);
+	glBindBuffer(GL_UNIFORM_BUFFER, cameraBlock);
+	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CameraData), &camera);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	GLuint mvpLocation = glGetUniformLocation(screenShaderProgram, "uMVP");
+
 	while (!glfwWindowShouldClose(window))
 	{
+		processInput(window);
+
+		glm::mat4 view = glm::lookAt(camera.cam_o, camera.cam_o + camera.forward, camera.up);
+		glm::mat4 projection = glm::perspective(camera.fov, (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 mvp = projection * view * model;
+
+		glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(mvp));
+
 		glUseProgram(computeProgram);
 		glDispatchCompute(std::ceil(SCREEN_WIDTH / 8), std::ceil(SCREEN_HEIGHT / 4), 1);
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
