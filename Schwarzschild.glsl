@@ -27,16 +27,20 @@ void main()
 {
     vec4 pixel = vec4(0.115, 0.133, 0.173, 1.0);
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-  
+
     ivec2 dims = imageSize(screen);
     float aspect_ratio = float(dims.x) / float(dims.y); // get aspect ratio of the window
-    float x = -(float(pixel_coords.x * 2 - dims.x) / dims.x); // transforms to [-1.0, 1.0]
-    float y = -(float(pixel_coords.y * 2 - dims.y) / dims.y); // transforms to [-1.0, 1.0]
     float fov = 90.0;
     vec3 cam_o = vec3(0.0, 0.0, (fov / 2.0));
-    vec3 ray_o = vec3(x * aspect_ratio, y, 0.0); // account for aspect ratio
-    vec3 ray_d = normalize(ray_o - cam_o);
-  
+
+    // Hardcoded vectors
+    vec3 forward = vec3(0, 0, -1);
+    vec3 right = vec3(1, 0, 0);
+    vec3 up = vec3(0, 1, 0);
+
+    vec3 ray_o = vec3(-1.0 + (2.0 * float(pixel_coords.x) / float(dims.x-1)), -1.0 + (2.0 * float(pixel_coords.y) / float(dims.y-1)), 0.0);
+    vec3 ray_d = normalize(forward + ray_o.x * right * aspect_ratio + ray_o.y * up);
+
     float t = marchRay(cam_o, ray_d);
     if (t >= 0.0) {
         vec3 p = cam_o + t * ray_d;
@@ -47,6 +51,6 @@ void main()
         ));
         pixel = vec4((n + 1.0) / 2.0, 1.0);
     }
-  
+
     imageStore(screen, pixel_coords, pixel);
 }
