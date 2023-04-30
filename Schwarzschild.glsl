@@ -42,14 +42,15 @@ void main()
     float aspect_ratio = float(dims.x) / float(dims.y); // get aspect ratio of the window
 
     float x = -(float(pixel_coords.x * 2 - dims.x) / dims.x); // transforms to [-1.0, 1.0]
-    float y = -(float(pixel_coords.y * 2 - dims.y) / dims.y); // transforms to [-1.0, 1.0]
+    float y = -(float(pixel_coords.y * 2 - dims.y) / dims.x); // transforms to [-1.0, 1.0]
     
     // float fov = 90.0;
     // vec3 cam_o = vec3(0.0, 0.0, (fov / 2.0));
     // vec3 ray_o = vec3(x * aspect_ratio, y, 0.0); // account for aspect ratio
     // vec3 ray_d = normalize(ray_o - cam_o);
-    vec3 ray_o = vec3(x * aspect_ratio, y * aspect_ratio, 0.0); // account for aspect ratio
-    vec3 ray_d = normalize(camera.forward + ray_o.x * camera.right + ray_o.y * camera.up);
+
+    vec3 ray_o = camera.cam_o;
+    vec3 ray_d = (camera.forward + x * camera.right + y * camera.up);
     vec3 cam_o = camera.cam_o;
 
     float t = marchRay(cam_o, ray_d);
