@@ -85,7 +85,7 @@ void processInput(GLFWwindow *window)
 
 int main()
 {
-	camera.cam_o = glm::vec3(0.0f, 0.0f, 3.0f);
+	camera.cam_o = glm::vec3(0.0f, 0.0f, -2.0f);
 	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);
 	camera.right = glm::vec3(1.0f, 0.0f, 0.0f);
 	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -164,24 +164,24 @@ int main()
 	glAttachShader(computeProgram, computeShader);
 	glLinkProgram(computeProgram);
 
-	unsigned int cameraBlock;
-	glGenBuffers(1, &cameraBlock);
-	glBindBuffer(GL_UNIFORM_BUFFER, cameraBlock);
-	glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CameraData), &camera);
-	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	//camera ubo
+	unsigned int uboCameraBlock;
+	glGenBuffers(1, &uboCameraBlock);
+	glBindBuffer(GL_UNIFORM_BUFFER, uboCameraBlock);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(CameraData), NULL, GL_STATIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 1);
 
-	GLuint mvpLocation = glGetUniformLocation(screenShaderProgram, "uMVP");
+	glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboCameraBlock); 
+
 
 	while (!glfwWindowShouldClose(window))
 	{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  
+
 		processInput(window);
-
-		glm::mat4 view = glm::lookAt(camera.cam_o, camera.cam_o + camera.forward, camera.up);
-		glm::mat4 projection = glm::perspective(camera.fov, (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
-		glm::mat4 model = glm::mat4(1.0f);
-		glm::mat4 mvp = projection * view * model;
-
-		glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(mvp));
+        glBindBuffer(GL_UNIFORM_BUFFER, uboCameraBlock);
+		glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboCameraBlock);
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CameraData), &camera);
 
 		glUseProgram(computeProgram);
 		glDispatchCompute(std::ceil(SCREEN_WIDTH / 8), std::ceil(SCREEN_HEIGHT / 4), 1);
