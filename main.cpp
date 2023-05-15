@@ -55,6 +55,29 @@ GLchar *LoadShader(const std::string &file)
 	return shaderCode;
 }
 
+glm::mat4 rotateY(float theta) {
+    float c = std::cos(theta);
+    float s = std::sin(theta);
+    return glm::mat4(
+        glm::vec4(c, 0, -s, 0),
+        glm::vec4(0, 1, 0, 0),
+        glm::vec4(s, 0, c, 0),
+        glm::vec4(0, 0, 0, 1)
+    );
+}
+
+glm::mat4 rotateX(float theta) {
+    float c = std::cos(theta);
+    float s = std::sin(theta);
+    return glm::mat4(
+        glm::vec4(1, 0, 0, 0),
+        glm::vec4(0, c, s, 0),
+        glm::vec4(0, -s, c, 0),
+        glm::vec4(0, 0, 0, 1)
+    );
+}
+
+
 struct CameraData {
     glm::vec3 cam_o;
     glm::vec3 forward;
@@ -63,32 +86,57 @@ struct CameraData {
     float fov;
 } camera;
 
+
 void processInput(GLFWwindow *window)
 {
     const float cameraSpeed = 0.05f; // adjust accordingly
+    const float rotationSpeed = 0.05f; // adjust accordingly
+	
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        camera.cam_o += cameraSpeed * camera.forward;
-	}
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		std::cout << "\nS";
-        camera.cam_o -= cameraSpeed * camera.forward;
-	}
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        camera.cam_o -= glm::normalize(glm::cross(camera.forward, camera.up)) * cameraSpeed;
-		std::cout << "\nA";
-	}
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
         camera.cam_o += glm::normalize(glm::cross(camera.forward, camera.up)) * cameraSpeed;
-		std::cout << "\nD";
-	}
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        camera.cam_o -= glm::normalize(glm::cross(camera.forward, camera.up)) * cameraSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        camera.cam_o -= glm::normalize(camera.right) * cameraSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        camera.cam_o += glm::normalize(camera.right) * cameraSpeed;	
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+        // rotate the camera to the left around the up vector
+        camera.forward = glm::mat3(rotateY(rotationSpeed)) * camera.forward;
+        camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
+        camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
+    }
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        // rotate the camera to the right around the up vector
+        camera.forward = glm::mat3(rotateY(-rotationSpeed)) * camera.forward;
+        camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
+        camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
+    }
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+        // rotate the camera up around the right vector
+        camera.forward = glm::mat3(rotateX(-rotationSpeed)) * camera.forward;
+        camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
+        camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
+    }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        // rotate the camera down around the right vector
+        camera.forward = glm::mat3(rotateX(rotationSpeed)) * camera.forward;
+        camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
+        camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
+    }
 }
 
 int main()
 {
-	camera.cam_o = glm::vec3(0.0f, 0.0f, -2.0f);
-	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);
-	camera.right = glm::vec3(1.0f, 0.0f, 0.0f);
-	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
+	camera.cam_o = glm::vec3(0.0f, 2.0f, -2.0f); //incr x leads to moving sphere down incr y leads to zoom in and out
+	camera.forward = glm::vec3(1.0f, 0.0f, -1.0f);
+	camera.right = glm::vec3(1.0f, 0.0f, 0.0f); //increasing right vector x value will lead to moving to the right, smaller x value leans to left
+	camera.up = glm::vec3(0.0f, 2.0f, 0.0f);
 	camera.fov = glm::radians(90.0f);
 
 	glfwInit();
@@ -173,6 +221,11 @@ int main()
 
 	glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboCameraBlock); 
 
+	GLuint modelLoc = glGetUniformLocation(screenShaderProgram, "model");
+	GLuint viewLoc = glGetUniformLocation(screenShaderProgram, "view");
+	GLuint projectionLoc = glGetUniformLocation(screenShaderProgram, "projection");
+	GLuint cameraPosLoc = glGetUniformLocation(screenShaderProgram, "cameraPos");
+	GLuint viewDirLoc = glGetUniformLocation(screenShaderProgram, "viewDir");
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -183,6 +236,11 @@ int main()
 		glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboCameraBlock);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CameraData), &camera);
 
+		glm::mat4 projection = glm::perspective(glm::radians(camera.fov), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+		glm::mat4 viewMatrix = glm::lookAt(camera.cam_o, camera.cam_o + camera.forward, camera.up);
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewMatrix));
 		glUseProgram(computeProgram);
 		glDispatchCompute(std::ceil(SCREEN_WIDTH / 8), std::ceil(SCREEN_HEIGHT / 4), 1);
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
