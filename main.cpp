@@ -9,6 +9,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <cmath>
+#include <glm/gtc/matrix_transform.hpp>
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -80,23 +81,36 @@ glm::mat4 rotateX(float theta) {
 
 struct CameraData {
     glm::vec3 cam_o;
+    float padding1;
     glm::vec3 forward;
+    float padding2;
     glm::vec3 right;
+    float padding3;
     glm::vec3 up;
+    float padding4;
     float fov;
 } camera;
 
 
+struct Matrices {
+	glm::mat4 move;
+	glm::mat4 view; //view matrix
+} matrices;
+
+void debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
+    std::cerr << "OpenGL debug message: " << message << std::endl;
+}
+
 void processInput(GLFWwindow *window)
 {
-    const float cameraSpeed = 0.05f; // adjust accordingly
+    const float cameraSpeed = 0.01f; // adjust accordingly
     const float rotationSpeed = 0.05f; // adjust accordingly
 	
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        camera.cam_o += glm::normalize(glm::cross(camera.forward, camera.up)) * cameraSpeed;
+		camera.cam_o += normalize(camera.forward) * cameraSpeed;
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        camera.cam_o -= glm::normalize(glm::cross(camera.forward, camera.up)) * cameraSpeed;
+		camera.cam_o -= normalize(camera.forward) * cameraSpeed;
     }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
         camera.cam_o -= glm::normalize(camera.right) * cameraSpeed;
@@ -107,13 +121,13 @@ void processInput(GLFWwindow *window)
     
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
         // rotate the camera to the left around the up vector
-        camera.forward = glm::mat3(rotateY(rotationSpeed)) * camera.forward;
+        camera.forward = glm::mat3(rotateY(-rotationSpeed)) * camera.forward;
         camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
         camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
     }
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
         // rotate the camera to the right around the up vector
-        camera.forward = glm::mat3(rotateY(-rotationSpeed)) * camera.forward;
+        camera.forward = glm::mat3(rotateY(rotationSpeed)) * camera.forward;
         camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
         camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
     }
@@ -129,16 +143,21 @@ void processInput(GLFWwindow *window)
         camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
         camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
     }
+
+	matrices.view = glm::lookAt(camera.cam_o, camera.cam_o + camera.forward, camera.up);
 }
 
 int main()
 {
-	camera.cam_o = glm::vec3(0.0f, 2.0f, -2.0f); //incr x leads to moving sphere down incr y leads to zoom in and out
-	camera.forward = glm::vec3(1.0f, 0.0f, -1.0f);
-	camera.right = glm::vec3(1.0f, 0.0f, 0.0f); //increasing right vector x value will lead to moving to the right, smaller x value leans to left
-	camera.up = glm::vec3(0.0f, 2.0f, 0.0f);
-	camera.fov = glm::radians(90.0f);
+	camera.cam_o = glm::vec3(0.0f, 0.0f, 2.0f); 
+	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);
+	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
+	camera.right = glm::normalize(glm::cross(camera.forward, camera.up));
+	camera.fov = glm::radians(65.0f);
 
+	matrices.move = glm::mat4(1.0f);
+	matrices.view = glm::mat4(1.0f);
+	
 	glfwInit();
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -158,6 +177,10 @@ int main()
 	glfwSwapInterval(vSync);
 
 	gladLoadGL();
+
+	glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(debugCallback, NULL);
 
 	GLuint VAO, VBO, EBO;
 	glCreateVertexArrays(1, &VAO);
@@ -217,30 +240,32 @@ int main()
 	glGenBuffers(1, &uboCameraBlock);
 	glBindBuffer(GL_UNIFORM_BUFFER, uboCameraBlock);
 	glBufferData(GL_UNIFORM_BUFFER, sizeof(CameraData), NULL, GL_STATIC_DRAW);
-	glBindBuffer(GL_UNIFORM_BUFFER, 1);
+	// glBindBuffer(GL_UNIFORM_BUFFER, 1);
 
 	glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboCameraBlock); 
 
-	GLuint modelLoc = glGetUniformLocation(screenShaderProgram, "model");
-	GLuint viewLoc = glGetUniformLocation(screenShaderProgram, "view");
-	GLuint projectionLoc = glGetUniformLocation(screenShaderProgram, "projection");
-	GLuint cameraPosLoc = glGetUniformLocation(screenShaderProgram, "cameraPos");
-	GLuint viewDirLoc = glGetUniformLocation(screenShaderProgram, "viewDir");
+	unsigned int uboMatricesBlock;
+	glGenBuffers(1, &uboMatricesBlock);
+	glBindBuffer(GL_UNIFORM_BUFFER, uboMatricesBlock);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(Matrices), NULL, GL_STATIC_DRAW);
+	// glBindBuffer(GL_UNIFORM_BUFFER, 2);
 
+	glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboMatricesBlock); 
+	
 	while (!glfwWindowShouldClose(window))
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  
 
 		processInput(window);
+
         glBindBuffer(GL_UNIFORM_BUFFER, uboCameraBlock);
 		glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboCameraBlock);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CameraData), &camera);
 
-		glm::mat4 projection = glm::perspective(glm::radians(camera.fov), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        glBindBuffer(GL_UNIFORM_BUFFER, uboMatricesBlock);
+		glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboMatricesBlock);
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Matrices), &matrices);
 
-		glm::mat4 viewMatrix = glm::lookAt(camera.cam_o, camera.cam_o + camera.forward, camera.up);
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewMatrix));
 		glUseProgram(computeProgram);
 		glDispatchCompute(std::ceil(SCREEN_WIDTH / 8), std::ceil(SCREEN_HEIGHT / 4), 1);
 		glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -251,6 +276,7 @@ int main()
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(indices[0]), GL_UNSIGNED_INT, 0);
 
+		std::cout << "Camera position: " << camera.cam_o.x << ", " << camera.cam_o.y << ", " << camera.cam_o.z << std::endl;		
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
