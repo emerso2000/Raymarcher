@@ -89,11 +89,11 @@ struct CameraData {
     glm::vec3 up;
     float padding4;
     float fov;
+	float floor_height;
 } camera;
 
 
 struct Matrices {
-	glm::mat4 move;
 	glm::mat4 view; //view matrix
 } matrices;
 
@@ -103,7 +103,7 @@ void debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsiz
 
 void processInput(GLFWwindow *window)
 {
-    const float cameraSpeed = 0.01f; // adjust accordingly
+    const float cameraSpeed = 0.05f; // adjust accordingly
     const float rotationSpeed = 0.05f; // adjust accordingly
 	
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
@@ -113,33 +113,33 @@ void processInput(GLFWwindow *window)
 		camera.cam_o -= normalize(camera.forward) * cameraSpeed;
     }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        camera.cam_o -= glm::normalize(camera.right) * cameraSpeed;
+        camera.cam_o += glm::normalize(camera.right) * cameraSpeed;
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        camera.cam_o += glm::normalize(camera.right) * cameraSpeed;	
+        camera.cam_o -= glm::normalize(camera.right) * cameraSpeed;	
     }
     
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
         // rotate the camera to the left around the up vector
-        camera.forward = glm::mat3(rotateY(-rotationSpeed)) * camera.forward;
+        camera.forward = glm::mat3(rotateY(rotationSpeed)) * camera.forward;
         camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
         camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
     }
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
         // rotate the camera to the right around the up vector
-        camera.forward = glm::mat3(rotateY(rotationSpeed)) * camera.forward;
+        camera.forward = glm::mat3(rotateY(-rotationSpeed)) * camera.forward;
         camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
         camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
     }
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
         // rotate the camera up around the right vector
-        camera.forward = glm::mat3(rotateX(-rotationSpeed)) * camera.forward;
+        camera.forward = glm::mat3(rotateX(rotationSpeed)) * camera.forward;
         camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
         camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
     }
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
         // rotate the camera down around the right vector
-        camera.forward = glm::mat3(rotateX(rotationSpeed)) * camera.forward;
+        camera.forward = glm::mat3(rotateX(-rotationSpeed)) * camera.forward;
         camera.right = glm::normalize(glm::cross(camera.forward, glm::vec3(0, 1, 0)));
         camera.up = glm::normalize(glm::cross(camera.right, camera.forward));
     }
@@ -155,7 +155,8 @@ int main()
 	camera.right = glm::normalize(glm::cross(camera.forward, camera.up));
 	camera.fov = glm::radians(65.0f);
 
-	matrices.move = glm::mat4(1.0f);
+	camera.floor_height = 1.0;
+
 	matrices.view = glm::mat4(1.0f);
 	
 	glfwInit();
