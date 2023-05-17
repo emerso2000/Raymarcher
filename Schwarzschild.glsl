@@ -14,11 +14,11 @@ layout(std140, binding = 1) uniform CameraBlock {
     vec3 up;
     float padding4;
     float fov;
+    float floor_height;
 } camera;
 
 
 layout (std140, binding = 2) uniform MatricesBlock {
-    mat4 move;
     mat4 view;
 } matrices;
 
@@ -29,18 +29,39 @@ float sphereSDF(vec3 p, float r) {
     return length(p) - r;
 }
 
+float floorSDF(vec3 p, float height)
+{
+    float d = abs(p.y - height); // Use absolute value of the distance
+    return d;
+}
+
+// float marchRay(vec3 origin, vec3 direction) {
+//     float t = 0.0;
+//     for (int i = 0; i < MAX_STEPS; i++) {
+//         vec3 p = origin + t * direction;
+//         float d = sphereSDF(p, 1.0);
+//         if (d < EPSILON) {
+//             return t;
+//         }
+//         t += d;
+//     }
+//     return -1.0;
+// }
+
 float marchRay(vec3 origin, vec3 direction) {
     float t = 0.0;
     for (int i = 0; i < MAX_STEPS; i++) {
         vec3 p = origin + t * direction;
-        float d = sphereSDF(p, 1.0);
-        if (d < EPSILON) {
+        float d1 = sphereSDF(p, 1.0);
+        float d2 = floorSDF(p, camera.floor_height);
+        if (d1 < EPSILON || d2 < EPSILON) {
             return t;
         }
-        t += d;
+        t += min(d1, d2);
     }
     return -1.0;
 }
+
 
 void main()
 {
@@ -55,15 +76,20 @@ void main()
     float y = -(float(pixel_coords.y * 2 - dims.y) / dims.y);
 
     vec3 ray_o = vec3(x * aspect_ratio, y, 0.0);
-    // vec3 ray_d = normalize((matrices.view * vec4(ray_o, 1)).xyz);
     vec3 ray_d = normalize(vec3(ray_o.x, ray_o.y, -1.0 / tan(camera.fov / 2.0)));
-
     // Apply matrices.view transformation to ray_d
     ray_d = (matrices.view * vec4(ray_d, 0)).xyz;
 
-    // ray_d *= aspect_ratio;
-
     float t = marchRay(camera.cam_o, ray_d);
+    // if (t >= 0.0) {
+    //     vec3 p = camera.cam_o + t * ray_d;
+    //     vec3 n = normalize(vec3(
+    //         sphereSDF(vec3(p.x + EPSILON, p.y, p.z), 1.0) - sphereSDF(vec3(p.x - EPSILON, p.y, p.z), 1.0),
+    //         sphereSDF(vec3(p.x, p.y + EPSILON, p.z), 1.0) - sphereSDF(vec3(p.x, p.y - EPSILON, p.z), 1.0),
+    //         sphereSDF(vec3(p.x, p.y, p.z + EPSILON), 1.0) - sphereSDF(vec3(p.x, p.y, p.z - EPSILON), 1.0)
+    //     ));
+    //     pixel = vec4((n + 1.0) / 2.0, 1.0);
+    // }
     if (t >= 0.0) {
         vec3 p = camera.cam_o + t * ray_d;
         vec3 n = normalize(vec3(
@@ -71,6 +97,9 @@ void main()
             sphereSDF(vec3(p.x, p.y + EPSILON, p.z), 1.0) - sphereSDF(vec3(p.x, p.y - EPSILON, p.z), 1.0),
             sphereSDF(vec3(p.x, p.y, p.z + EPSILON), 1.0) - sphereSDF(vec3(p.x, p.y, p.z - EPSILON), 1.0)
         ));
+        if (floorSDF(p, camera.floor_height) < EPSILON) {
+            n = vec3(0.0, -1.0, 0.0); // Set the normal vector for the floor surface
+        }
         pixel = vec4((n + 1.0) / 2.0, 1.0);
     }
 
