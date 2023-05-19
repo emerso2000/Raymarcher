@@ -110,6 +110,53 @@ float marchRay(vec3 origin, vec3 direction) {
     return -1.0;
 }
 
+
+vec3 cartesianToSpherical(vec3 cartesian) {
+    float radius = length(cartesian);
+    float inclination = acos(cartesian.z / radius);
+    float azimuth = atan(cartesian.y, cartesian.x);
+
+    return vec3(radius, inclination, azimuth);
+}
+
+vec3 sphericalToCartesian(vec3 spherical) {
+    float x = spherical.x * sin(spherical.y) * cos(spherical.z);
+    float y = spherical.x * sin(spherical.y) * sin(spherical.z);
+    float z = spherical.x * cos(spherical.y);
+
+    return vec3(x, y, z);
+}
+
+vec3 cartesianToAzELR(vec3 cartesianVec) {
+    float vx = cartesianVec.x;
+    float vy = cartesianVec.y;
+    float vz = cartesianVec.z;
+
+    float az = atan(vy, vx);
+    float el = atan(vz, sqrt(vx * vx + vy * vy));
+    float R = length(cartesianVec);
+
+    return vec3(az, el, R);
+}
+
+vec3 sphericalToAzELR(vec3 sphericalVec) {
+    float az = sphericalVec.x;
+    float el = sphericalVec.y;
+    float R = sphericalVec.z;
+
+    float cos_az = cos(az);
+    float sin_az = sin(az);
+    float cos_el = cos(el);
+    float sin_el = sin(el);
+
+    float vx = R * cos_el * cos_az;
+    float vy = R * cos_el * sin_az;
+    float vz = R * sin_el;
+
+    return vec3(vx, vy, vz);
+}
+
+
 void main()
 {
     vec4 pixel = vec4(0.115, 0.133, 0.173, 1.0);
@@ -123,16 +170,21 @@ void main()
     float y = -(float(pixel_coords.y * 2 - dims.y) / dims.y);
 
     vec3 ray_o = vec3(x * aspect_ratio, y, 0.0);
+
+    ray_o = sphericalToCartesian(cartesianToSpherical(ray_o));;
+
     vec3 ray_d = vec3(ray_o.x, ray_o.y, -1.0 / tan(camera.fov / 2.0));
     // Apply matrices.view transformation to ray_d
     ray_d = (matrices.view * vec4(ray_d, 0)).xyz;
-    ray_d = normalize(ray_d);
+
+    // ray_d = normalize(ray_d);
+    ray_d = normalize(sphericalToAzELR(cartesianToAzELR(ray_d)));
 
     float t = marchRay(camera.cam_o, ray_d);
 
     //V1
     if (t >= 0.0) {
-        vec3 p = camera.cam_o + t * ray_d;
+        vec3 p = sphericalToCartesian(cartesianToSpherical(camera.cam_o)) + t * ray_d;
         vec3 sphereColor = vec3(1.0, 0.0, 0.0); // Red color for the sphere
         vec3 floorColor = vec3(0.0, 0.0, 1.0); // green color for the floor
         vec3 ceilingColor = vec3(0.0, 1.0, 0.0); // blue color for the ceiling
