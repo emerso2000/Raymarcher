@@ -183,9 +183,9 @@ int main()
 
 	gladLoadGL();
 
-	glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(debugCallback, NULL);
+	// glEnable(GL_DEBUG_OUTPUT);
+    // glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    // glDebugMessageCallback(debugCallback, NULL);
 
 	GLuint VAO, VBO, EBO;
 	glCreateVertexArrays(1, &VAO);
@@ -240,6 +240,25 @@ int main()
 	glAttachShader(computeProgram, computeShader);
 	glLinkProgram(computeProgram);
 
+	GLint success;
+	glGetProgramiv(computeProgram, GL_LINK_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		// Linking failed, retrieve the error log
+		GLint logLength;
+		glGetProgramiv(computeProgram, GL_INFO_LOG_LENGTH, &logLength);
+
+		std::vector<GLchar> log(logLength);
+		glGetProgramInfoLog(computeProgram, logLength, nullptr, log.data());
+
+		// Output the error log
+		std::cout << "Shader linking failed:\n" << log.data() << std::endl;
+	} else {
+		// Linking successful
+		std::cout << "Shader linked successfully!" << std::endl;
+	}
+
+
 	//camera ubo
 	unsigned int uboCameraBlock;
 	glGenBuffers(1, &uboCameraBlock);
@@ -289,6 +308,7 @@ int main()
 
 	glDeleteShader(screenVertexShader);
 	glDeleteShader(screenFragmentShader);
+	glDeleteShader(computeProgram);
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
