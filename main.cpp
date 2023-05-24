@@ -151,15 +151,14 @@ void processInput(GLFWwindow *window)
 int main()
 {
 	camera.cam_o = glm::vec3(0.0f, 0.0f, 2.0f); 
-	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);
+	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);	
 	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
 	camera.right = glm::normalize(glm::cross(camera.forward, camera.up));
 	camera.fov = glm::radians(65.0f);
 
-	camera.floor_height = -1.0;
+	camera.floor_height = -1.0; //has to be negative for some strange reason
 
-	camera.ceiling_height = 2.0; //has to be negative for some strange reason
-
+	camera.ceiling_height = 2.0; 
 	std::cout << "\nFloor height: " << camera.floor_height << std::endl;
 	matrices.view = glm::mat4(1.0f);
 	
@@ -300,7 +299,7 @@ int main()
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(indices[0]), GL_UNSIGNED_INT, 0);
 
-		std::cout << "Camera position: " << camera.cam_o.x << ", " << camera.cam_o.y << ", " << camera.cam_o.z << std::endl;		
+		// std::cout << "Camera position: " << camera.cam_o.x << ", " << camera.cam_o.y << ", " << camera.cam_o.z << std::endl;		
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
