@@ -93,7 +93,6 @@ struct CameraData {
 	float ceiling_height;
 } camera;
 
-
 struct Matrices {
 	glm::mat4 view; //view matrix
 } matrices;
@@ -108,16 +107,16 @@ void processInput(GLFWwindow *window)
     const float rotationSpeed = 0.05f; // adjust accordingly
 	
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		camera.cam_o += normalize(camera.forward) * cameraSpeed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
 		camera.cam_o -= normalize(camera.forward) * cameraSpeed;
     }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		camera.cam_o += normalize(camera.forward) * cameraSpeed;
+    }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        camera.cam_o += glm::normalize(camera.right) * cameraSpeed;
+        camera.cam_o -= glm::normalize(camera.right) * cameraSpeed;
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        camera.cam_o -= glm::normalize(camera.right) * cameraSpeed;	
+        camera.cam_o += glm::normalize(camera.right) * cameraSpeed;	
     }
     
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
@@ -150,18 +149,19 @@ void processInput(GLFWwindow *window)
 
 int main()
 {
-	camera.cam_o = glm::vec3(0.0f, 0.0f, 2.0f); 
+	camera.cam_o = glm::vec3(0.0f, 0.0f, -2.5f); 
 	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);	
 	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
 	camera.right = glm::normalize(glm::cross(camera.forward, camera.up));
+
 	camera.fov = glm::radians(65.0f);
 
 	camera.floor_height = -1.0; //has to be negative for some strange reason
-
 	camera.ceiling_height = 2.0; 
 	std::cout << "\nFloor height: " << camera.floor_height << std::endl;
+
 	matrices.view = glm::mat4(1.0f);
-	
+
 	glfwInit();
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -256,7 +256,6 @@ int main()
 		// Linking successful
 		std::cout << "Shader linked successfully!" << std::endl;
 	}
-
 
 	//camera ubo
 	unsigned int uboCameraBlock;
