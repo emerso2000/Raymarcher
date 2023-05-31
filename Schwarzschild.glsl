@@ -21,22 +21,10 @@ layout (std140, binding = 2) uniform MatricesBlock {
     mat4 view;
 } matrices;
 
-const int MAX_STEPS = 5000;
+const int MAX_STEPS = 100;
 
 float sphereSDF(vec3 p, float r) {
     return length(p) - r;
-}
-
-float floorSDF(vec3 p, float height) {
-    return p.y - height;
-}
-
-float wallSDF(vec3 p, vec3 normal, float distance) {
-    return dot(p, normal) + distance;
-}
-
-float ceilingSDF(vec3 p, float height) {
-    return height - p.y;
 }
 
 vec3 cartesianToSpherical(vec3 cartesian) {
@@ -56,10 +44,6 @@ vec3 sphericalToCartesian(vec3 spherical) {
 }
 
 vec3 cartesianToAzELR(vec3 cartesianVec, vec3 newRayOrigin) {
-    // float r = sqrt((newRayOrigin.x * newRayOrigin.x) + (newRayOrigin.y * newRayOrigin.y) + (newRayOrigin.z * newRayOrigin.z));
-    // float az = acos(newRayOrigin.z / r);
-    // float el = newRayOrigin.z;
-
     float r = newRayOrigin.x;
     float az = newRayOrigin.y;
     float el = newRayOrigin.z;
@@ -191,7 +175,6 @@ float marchRay(vec3 origin, vec3 direction) {
     return -1.0;
 }
 
-
 void main() {
     vec4 pixel = vec4(0.115, 0.133, 0.173, 1.0);
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
@@ -217,16 +200,8 @@ void main() {
 
     float d = marchRay(sphericalRo, sphericalRd);
 
-    vec3 p = sphericalRo;
-
     if (d >= 0.0) {
-        p += sphericalRd * d;
-
-        vec3 p_cart = sphericalToCartesian(p);
-
         vec3 sphereColor = vec3(1.0, 0.0, 0.0); // Red color for the sphere
-
-        float sphereDist = sphereSDF(p_cart, 1.0);
 
         pixel = vec4(sphereColor, 1.0);
     }
