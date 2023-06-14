@@ -1,4 +1,5 @@
 #version 450 core
+#define PI 3.14159265359
 
 layout(local_size_x = 8, local_size_y = 4, local_size_z = 1) in;
 layout(rgba32f, binding = 0) uniform image2D screen;
@@ -21,39 +22,48 @@ layout (std140, binding = 2) uniform MatricesBlock {
     mat4 view;
 } matrices;
 
-const int MAX_STEPS = 100;
+const int MAX_STEPS = 500;
 
 float sphereSDF(vec3 p, float r) {
     return length(p) - r;
 }
 
+float floorSDF(vec3 p, float height) {
+    return p.y - height;
+}
+
+float atan2(in float y, in float x)
+{
+    return x == 0.0 ? sign(y)*PI/2 : atan(y, x);
+}
+
 vec3 cartesianToSpherical(vec3 cartesian) {
     float radius = length(cartesian);
-    float theta = acos(cartesian.z / radius);
-    float phi = atan(cartesian.y, cartesian.x);
+    float theta = acos(cartesian.y / radius);
+    float phi = -atan2(cartesian.z, cartesian.x);
 
     return vec3(radius, theta, phi);
 }
 
 vec3 sphericalToCartesian(vec3 spherical) {
     float x = spherical.x * sin(spherical.y) * cos(spherical.z);
-    float y = spherical.x * sin(spherical.y) * sin(spherical.z);
-    float z = spherical.x * cos(spherical.y);
+    float y = spherical.x * cos(spherical.y);
+    float z = spherical.x * sin(spherical.y) * sin(spherical.z);
 
     return vec3(x, y, z);
 }
 
 vec3 cartesianToAzELR(vec3 cartesianVec, vec3 newRayOrigin) {
     float r = newRayOrigin.x;
-    float az = newRayOrigin.y;
-    float el = newRayOrigin.z;
+    float th = newRayOrigin.y;
+    float phi = newRayOrigin.z;
 
     mat3 transformationMatrix = mat3(
-        -sin(az),  cos(az),  0.0,
-        -sin(el) * cos(az), -sin(el) * sin(az),  cos(el),
-        cos(el) * cos(az),  cos(el) * sin(az),  sin(el)
+        sin(th)*cos(phi),  sin(th)*sin(phi),  cos(th),
+        cos(th)*cos(phi),  cos(th) *sin(phi), -sin(th),
+        -sin(phi),  cos(phi),  0
     );
-
+    
     vec3 newVec = transformationMatrix * cartesianVec;
 
     return newVec;
@@ -67,7 +77,7 @@ mat3 calculateChristoffelSymbolsAlphaR(vec3 position) {
 
     float rs = 0.0; // Schwarzschild radius
 
-    christoffelSymbols_alpha_r[0][0] = -rs / (2.0 * r) * (r - rs);
+    christoffelSymbols_alpha_r[0][0] = -rs /((2.0 * r) * (r - rs));
     christoffelSymbols_alpha_r[0][1] = 0.0;
     christoffelSymbols_alpha_r[0][2] = 0.0;
 
@@ -114,28 +124,23 @@ mat3 calculateChristoffelSymbolsAlphaPhi(vec3 position) {
     float rs = 0.0; // Schwarzschild radius
 
     christoffelSymbols_alpha_phi[0][0] = 0.0;
-    christoffelSymbols_alpha_phi[0][1] = 1.0 / r;
-    christoffelSymbols_alpha_phi[0][2] = 0.0;
+    christoffelSymbols_alpha_phi[0][1] = 0.0;
+    christoffelSymbols_alpha_phi[0][2] = 1.0 / r;
 
-    christoffelSymbols_alpha_phi[1][0] = 1.0 / r;
+    christoffelSymbols_alpha_phi[1][0] = 0.0;
     christoffelSymbols_alpha_phi[1][1] = 0.0;
     christoffelSymbols_alpha_phi[1][2] = 1.0 / tan(theta);
 
-    christoffelSymbols_alpha_phi[2][0] = 0.0;
+    christoffelSymbols_alpha_phi[2][0] = 1.0 / r;
     christoffelSymbols_alpha_phi[2][1] = 1.0 / tan(theta);
     christoffelSymbols_alpha_phi[2][2] = 0.0;
 
     return christoffelSymbols_alpha_phi;
 }
 
-float marchRay(vec3 origin, vec3 direction) {
-    float t = 0.0;
 
-    float prevDistSphere = sphereSDF(sphericalToCartesian(origin), 1.0);
-
-    float minStepSize = 0.001;
-
-    float stepSize = 0.0;
+vec3 marchRay(vec3 origin, vec3 direction) {
+    float stepSize = 0.01;
 
     vec3 p = origin;
 
@@ -145,15 +150,11 @@ float marchRay(vec3 origin, vec3 direction) {
         p += stepSize * direction;
         vec3 p_cart = sphericalToCartesian(p);
 
-        float currentDistSphere = sphereSDF(p_cart, 1.0);
-
-        if (prevDistSphere > 0.0 && currentDistSphere <= 0.0) {
-            return t;
+        if (p.x < 1) {
+            return vec3(1.0, 0.0, 0.0);
         }
-
-        stepSize = currentDistSphere;
-        if (stepSize < minStepSize) {
-            stepSize = minStepSize;
+        if (p_cart.y < camera.floor_height) {
+            return vec3(0.0, 1.0, 0.0);
         }
 
         mat3 christoffelSymbols_alpha_r = calculateChristoffelSymbolsAlphaR(p);
@@ -166,13 +167,9 @@ float marchRay(vec3 origin, vec3 direction) {
         accel.z = -dot(direction, christoffelSymbols_alpha_phi * direction);
 
         direction += accel * stepSize;
-
-        t += stepSize;
-
-        prevDistSphere = currentDistSphere;
-
     }
-    return -1.0;
+
+    return vec3(0.115, 0.133, 0.173);
 }
 
 void main() {
@@ -198,13 +195,9 @@ void main() {
 
     sphericalRd.z /= (sphericalRo.x * sin(sphericalRo.y));
 
-    float d = marchRay(sphericalRo, sphericalRd);
+    vec3 color = marchRay(sphericalRo, sphericalRd);
 
-    if (d >= 0.0) {
-        vec3 sphereColor = vec3(1.0, 0.0, 0.0); // Red color for the sphere
-
-        pixel = vec4(sphereColor, 1.0);
-    }
+    pixel = vec4(color, 1.0);
     
     imageStore(screen, pixel_coords, pixel);
 }
