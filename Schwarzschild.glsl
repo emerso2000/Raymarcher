@@ -23,7 +23,7 @@ layout (std140, binding = 2) uniform MatricesBlock {
 } matrices;
 
 const int MAX_STEPS = 2000;
-const float globalMass = 0.35;
+const float globalMass = 0.5;
 
 float atan2(in float y, in float x) {
     return x == 0.0 ? sign(y)*PI/2 : atan(y, x);
@@ -196,35 +196,47 @@ mat4 calculateChristoffelSymbolsAlphaTime(vec4 position) {
 
 vec3 marchRay(vec4 origin, vec4 direction) {
     float stepSize = 0.01;
+    float wall = 8.0f;
 
     vec4 p = origin;
 
     vec4 accel = vec4(0.0);
 
+    float ref_step = 0.01;
+
     for (int i = 0; i < MAX_STEPS; i++) {
         p += stepSize * direction.xyzw;
         vec3 p_cart = sphericalToCartesian(p); //in cartesian should be vec3 right??
 
-        // if (p.x < 0.60) {
+        // if (p.x < 1) {
         //     return vec3(1.0, 0.0, 0.0); //sphere
         // }
-        if (p_cart.z <= 0.5) {
+        if(length(p_cart.xz) < 2.0) {
+            stepSize = max(ref_step * length(p_cart.xz) / 0.5, 0.0001);
+        }
+        if (p_cart.z <= -wall) {
             return vec3(0.0, 1.0, 0.0); //first wall
         }
-        if (p_cart.x >= 0.5) {
+        if (p_cart.x >= wall) {
             return vec3(0.0, 0.0, 1.0); // Second wall
         }
-        if (p_cart.x <= -0.5) {
+        if (p_cart.x <= -wall) {
             return vec3(1.0, 1.0, 0.0); // Third wall
         }
-        if (p_cart.z >= 2.5) {
+        if (p_cart.z >= wall) {
             return vec3(0.0, 1.0, 1.0); // Wall behind the camera
         }
-        if (p_cart.y <= camera.floor_height) {
+        if (p_cart.y <= -wall) {
             return vec3(0.5, 0.0, 0.0); //floor
         }
-        if (p_cart.y >= camera.ceiling_height) {
+        if (p_cart.y >= wall) {
             return vec3(0.5, 0.5, 0.0); //ceiling
+        }
+        
+        float rs = 2 * globalMass;
+
+        if (p.x < rs * 1.001) {
+            return vec3(0.0, 0.0, 0.0); //event horizon!!
         }
         
         mat4 christoffelSymbols_alpha_r = calculateChristoffelSymbolsAlphaR(p);
@@ -252,10 +264,10 @@ void main() {
 
     vec2 uv = (vec2(pixel_coords) - 0.5 * dims.xy) / dims.y;
 
-    vec3 ro = vec3(0, 0, -2.5);
+    vec3 ro = vec3(0, 0, -4.5);
 
     // vec3 ro = camera.cam_o;
-    vec3 rd = (vec3(uv.x, uv.y, 1.0));
+    vec3 rd = (vec3(uv.x, uv.y, 0.4));
     rd = (matrices.view * vec4(rd, 0)).xyz;
 
     rd = normalize(rd);
@@ -263,7 +275,7 @@ void main() {
     vec3 sphericalRo = cartesianToSpherical(ro);
     vec3 sphericalRd = cartesianToAzELR(rd, sphericalRo);
 
-    vec4 schwarzschildRd = vec4(sphericalRd, 1.0);
+    vec4 schwarzschildRd = vec4(sphericalRd, -1.0);
     vec4 schwarzschildRo = vec4(sphericalRo, 0.0);
 
     // sphericalRd.y /= sphericalRo.x;
