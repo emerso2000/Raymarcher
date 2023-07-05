@@ -13,16 +13,13 @@ layout(std140, binding = 1) uniform CameraBlock {
     float padding3;
     vec3 up;
     float padding4;
-    float fov;
-    float floor_height;
-    float ceiling_height;
 } camera;
 
 layout (std140, binding = 2) uniform MatricesBlock {
     mat4 view;
 } matrices;
 
-const int MAX_STEPS = 2000;
+const int MAX_STEPS = 1950;
 const float globalMass = 0.5;
 
 float atan2(in float y, in float x) {
@@ -56,7 +53,6 @@ vec3 cartesianToAzELR(vec3 cartesianVec, vec3 newRayOrigin) {
         -sin(phi),  cos(phi),  0
     );
     
-    // mat3 transposeMatrix = transpose(transformationMatrix);
     vec3 newVec = transformationMatrix * cartesianVec;
 
     return newVec;
@@ -206,11 +202,8 @@ vec3 marchRay(vec4 origin, vec4 direction) {
 
     for (int i = 0; i < MAX_STEPS; i++) {
         p += stepSize * direction.xyzw;
-        vec3 p_cart = sphericalToCartesian(p); //in cartesian should be vec3 right??
+        vec3 p_cart = sphericalToCartesian(p);
 
-        // if (p.x < 1) {
-        //     return vec3(1.0, 0.0, 0.0); //sphere
-        // }
         if(length(p_cart.xz) < 2.0) {
             stepSize = max(ref_step * length(p_cart.xz) / 0.5, 0.0001);
         }
@@ -238,7 +231,10 @@ vec3 marchRay(vec4 origin, vec4 direction) {
         if (p.x < rs * 1.001) {
             return vec3(0.0, 0.0, 0.0); //event horizon!!
         }
-        
+        if((p.x > 2.5 * rs) && (p.x < 5.0 * rs) && (p_cart.x < 0.02) && (p_cart.x > -0.02)) {
+            return vec3(0.9333, 0.2784, 0.3451); //accretion disk
+        }
+
         mat4 christoffelSymbols_alpha_r = calculateChristoffelSymbolsAlphaR(p);
         mat4 christoffelSymbols_alpha_theta = calculateChristoffelSymbolsAlphaTheta(p);
         mat4 christoffelSymbols_alpha_phi = calculateChristoffelSymbolsAlphaPhi(p);
@@ -252,7 +248,6 @@ vec3 marchRay(vec4 origin, vec4 direction) {
 
         direction.xyzw += accel * stepSize;
     }
-
     return vec3(0.115, 0.133, 0.173);
 }
 
@@ -264,11 +259,11 @@ void main() {
 
     vec2 uv = (vec2(pixel_coords) - 0.5 * dims.xy) / dims.y;
 
-    vec3 ro = vec3(0, 0, -4.5);
+    // vec3 ro = vec3(0.5, 0.0, -6.5);
 
-    // vec3 ro = camera.cam_o;
+    vec3 ro = camera.cam_o;
     vec3 rd = (vec3(uv.x, uv.y, 0.4));
-    rd = (matrices.view * vec4(rd, 0)).xyz;
+    // rd = (matrices.view * vec4(rd, 0)).xyz;
 
     rd = normalize(rd);
     
@@ -277,18 +272,16 @@ void main() {
 
     vec4 schwarzschildRd = vec4(sphericalRd, -1.0);
     vec4 schwarzschildRo = vec4(sphericalRo, 0.0);
-
-    // sphericalRd.y /= sphericalRo.x;
-    // sphericalRd.z /= (sphericalRo.x * sin(sphericalRo.y));
     
     float m = globalMass;
-    float r = sphericalRo.x;
+    float r = sphericalRo.x; //initial position
 
     float e0 = 1.0 / sqrt(1.0 - 2.0 * m / r); //time
     float e1 = sqrt(1.0 - 2.0 * m / r); //r
     float e2 = (1.0 / r); //theta
     float e3 = 1.0 / (r * sin(sphericalRo.y)); //phi
 
+    //in order of (r, theta, phi, ct)
     mat4 tetradMatrix = mat4(
         e1, 0, 0, 0,
         0, e2, 0, 0,
@@ -298,7 +291,7 @@ void main() {
 
     mat4 inverseTetradMatrix = inverse(tetradMatrix);
     
-    schwarzschildRd = schwarzschildRd * tetradMatrix;
+    schwarzschildRd = schwarzschildRd * tetradMatrix; //transform to true schwarzschild coordinates
 
     vec3 color = marchRay(schwarzschildRo, schwarzschildRd);
 
