@@ -1,15 +1,15 @@
-#include <random>
-#include <glad/glad.h>
+#include </home/ethan/glad/glad.h>
 #include <GLFW/glfw3.h>
+#include </home/ethan/glm-stable/glm/glm.hpp>
+#include </home/ethan/glm-stable/glm/gtc/type_ptr.hpp>
+#include </home/ethan/glm-stable/glm/gtc/random.hpp>
 #include <iostream>
-#include <fstream>
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/random.hpp>
+#include </home/ethan/glm-stable/glm/gtc/matrix_transform.hpp>
+#include <random>
 #include <ctime>
 #include <cstdlib>
 #include <cmath>
-#include <glm/gtc/matrix_transform.hpp>
+#include <fstream>
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -149,7 +149,7 @@ void processInput(GLFWwindow *window)
 
 int main()
 {
-	camera.cam_o = glm::vec3(0.0f, 0.0f, -2.5f); 
+	camera.cam_o = glm::vec3(0.5f, 0.0f, -6.5f); 
 	camera.forward = glm::vec3(0.0f, 0.0f, -1.0f);	
 	camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
 	camera.right = glm::normalize(glm::cross(camera.forward, camera.up));
